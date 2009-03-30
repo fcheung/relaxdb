@@ -125,7 +125,7 @@ module RelaxDB
       # Set default properties if this object isn't being loaded from CouchDB
       unless hash["_rev"]
         properties.each do |prop|
-         if methods.include?("set_default_#{prop}")
+         if respond_to?("set_default_#{prop}")
            send("set_default_#{prop}")
          end
         end
@@ -148,7 +148,7 @@ module RelaxDB
         # Ignore param keys that don't have a corresponding writer
         # This allows us to comfortably accept a hash containing superflous data 
         # such as a params hash in a controller 
-        send("#{key}=".to_sym, val) if methods.include? "#{key}="
+        send("#{key}=".to_sym, val) if respond_to? "#{key}="
       end
     end  
             
@@ -256,7 +256,7 @@ module RelaxDB
       total_success = true      
       att_names.each_index do |i|
         att_name, att_val = att_names[i], att_vals[i]
-        if methods.include? "validate_#{att_name}"
+        if respond_to? "validate_#{att_name}"
           total_success &= validate_att(att_name, att_val)
         end
       end
