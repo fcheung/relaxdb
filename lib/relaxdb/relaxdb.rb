@@ -61,6 +61,11 @@ module RelaxDB
       db.replicate_db source, target
     end
     
+    def bulk_delete(*objs)
+      resp = db.post("_bulk_docs", { "docs" => objs.collect {|o| {'_id'=> o._id, '_rev' => o._rev, '_deleted' => true}} }.to_json )
+      objs
+    end
+    
     def bulk_save!(*objs)
       pre_save_success = objs.inject(true) { |s, o| s &= o.pre_save }
       raise ValidationFailure, objs unless pre_save_success

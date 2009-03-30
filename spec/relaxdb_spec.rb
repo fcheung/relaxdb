@@ -71,6 +71,23 @@ describe RelaxDB do
     end
     
   end
+
+  describe ".bulk_delete" do
+    it "should delete the corresponding document from CouchDB" do
+      p = Atom.new.save
+      p2 = Atom.new.save
+      RelaxDB.bulk_delete p,p2
+      RelaxDB.load(p._id).should be_nil  
+      RelaxDB.load(p2._id).should be_nil  
+    end
+
+    it "should return the objects it was passed" do
+      t1, t2 = Tag.new.save, Tag.new.save
+      ta, tb = RelaxDB.bulk_delete(t1, t2)
+      ta.should == t1
+      tb.should == t2
+    end
+  end
   
   describe ".bulk_save!" do
     
