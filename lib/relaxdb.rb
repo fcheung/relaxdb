@@ -17,6 +17,7 @@ require 'relaxdb/validators'
 
 require 'relaxdb/all_delegator'
 require 'relaxdb/belongs_to_proxy'
+require 'relaxdb/cache'
 require 'relaxdb/design_doc'
 require 'relaxdb/document'
 require 'relaxdb/extlib'

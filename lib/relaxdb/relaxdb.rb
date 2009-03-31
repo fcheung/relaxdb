@@ -98,6 +98,7 @@ module RelaxDB
     end
     
     def reload(obj)
+      remove_from_cache obj
       load(obj._id)
     end
   
@@ -107,12 +108,20 @@ module RelaxDB
       if ids.is_a? Array
         resp = db.post("_all_docs?include_docs=true", {:keys => ids}.to_json)
         data = JSON.parse(resp.body)
-        data["rows"].map { |row| row["doc"] ? create_object(row["doc"]) : nil }
+        rows = data["rows"].map { |row| row["doc"] ? create_object(row["doc"]) : nil }
+        if c = cache
+          rows.each {|o| store_in_cache o if o}
+        end
+        rows          
       else
+          cached_version = cached(ids)
+          return cached_version if cached_version
         begin
           resp = db.get(ids)
           data = JSON.parse(resp.body)
-          create_object(data)
+          object = create_object(data)
+          store_in_cache(object) if cache
+          object
         rescue HTTP_404
           nil
         end

@@ -120,6 +120,68 @@ describe RelaxDB do
     
   end
   
+  describe ".load cached" do
+    it "should store single loads in the cache" do
+      a = Atom.new.save
+      RelaxDB.with_cache do
+        ar = RelaxDB.load a._id
+        RelaxDB.cache[a._id].should == a
+      end
+    end
+    
+    it "should store multiple loads in the cache" do
+      a1 = Atom.new.save
+      a2 = Atom.new.save
+      
+      RelaxDB.with_cache do
+        ar = RelaxDB.load [a1._id, a2._id]
+        RelaxDB.cache[a1._id].should == a1
+        RelaxDB.cache[a2._id].should == a2
+      end
+    
+    end
+    
+    it "should dump the cache after calls to with_context" do
+      a = Atom.new.save
+      RelaxDB.with_cache do
+        RelaxDB.store_in_cache a
+      end
+      
+      RelaxDB.with_cache do
+        mock_response = mock('response')
+        mock_response.should_receive(:body).and_return(a.to_json)
+        RelaxDB.db.should_receive(:get).and_return(mock_response)
+        ar = RelaxDB.load a._id
+        ar.should == a        
+      end
+    end
+    
+    it "should fetch fresh data upon reload" do
+      a = Atom.new.save
+      RelaxDB.with_cache do
+        a1 = RelaxDB.load a._id
+        a1.save
+        
+        mock_response = mock('response')
+        mock_response.should_receive(:body).and_return(a.to_json)
+        RelaxDB.db.should_receive(:get).and_return(mock_response)
+        
+        a = RelaxDB.reload a
+      end
+    end
+    
+    it "should not hit the server if it is in the cache" do
+      a = Atom.new.save
+      RelaxDB.with_cache do
+        RelaxDB.store_in_cache a
+        RelaxDB.db.should_not_receive(:get)
+        ar = RelaxDB.load a._id
+        ar.should == a
+      end
+    end
+  end
+  
+  
   describe ".load" do
     
     it "should load a single document" do
