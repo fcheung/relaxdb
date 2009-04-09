@@ -15,11 +15,7 @@ module RelaxDB
       
     def cached(_id)
       c = cache
-      result = c && cache[_id]
-      if result
-        RAILS_DEFAULT_LOGGER.info "cache hit for #{_id}"
-      end
-      result
+      c && cache[_id]
     end
     
     def store_in_cache(doc)

@@ -104,8 +104,7 @@ module RelaxDB
   
     def load(ids)
       # RelaxDB.logger.debug(caller.inject("#{db.name}/#{ids}\n") { |a, i| a += "#{i}\n" })
-      
-      if ids.is_a? Array
+      r = if ids.is_a? Array
         resp = db.post("_all_docs?include_docs=true", {:keys => ids}.to_json)
         data = JSON.parse(resp.body)
         rows = data["rows"].map { |row| row["doc"] ? create_object(row["doc"]) : nil }
@@ -126,6 +125,7 @@ module RelaxDB
           nil
         end
       end
+      r
     end
     
     def load!(ids)
@@ -141,6 +141,7 @@ module RelaxDB
       q = Query.new(view_name, params)
       
       resp = q.keys ? db.post(q.view_path, q.keys) : db.get(q.view_path)
+      
       hash = JSON.parse(resp.body)
       
       if q.raw then hash
