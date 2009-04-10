@@ -119,8 +119,6 @@ module RelaxDB
           resp = db.get(ids)
           data = JSON.parse(resp.body)
           object = create_object(data)
-          store_in_cache(object) if cache
-          object
         rescue HTTP_404
           nil
         end
@@ -197,8 +195,10 @@ module RelaxDB
       klass = data.is_a?(Hash) && data.delete("relaxdb_class")
       if klass
         k = klass.split("::").inject(Object) { |x, y| x.const_get y }
-        k.new data
-      else 
+        r = k.new data
+        store_in_cache(r)
+        r
+      else
         # data is a scalar or not of a known class
         ViewObject.create data
       end
