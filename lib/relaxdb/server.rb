@@ -103,25 +103,25 @@ module RelaxDB
 
     def delete(path=nil)
       @logger.info("DELETE /#{@db}/#{unesc(path)}")
-      @server.delete("/#{@db}/#{path}")
+      benchmark{ @server.delete("/#{@db}/#{path}")}
     end
     
     def get(path=nil)
       @get_count += 1
       @logger.info("GET /#{@db}/#{unesc(path)}")
-      @server.get("/#{@db}/#{path}")
+      benchmark{ @server.get("/#{@db}/#{path}")}
     end
         
     def post(path=nil, json=nil)
       @post_count += 1
       @logger.info("POST /#{@db}/#{unesc(path)} #{json}")
-      @server.post("/#{@db}/#{path}", json)
+      benchmark{ @server.post("/#{@db}/#{path}", json)}
     end
     
     def put(path=nil, json=nil)
       @put_count += 1
       @logger.info("PUT /#{@db}/#{unesc(path)} #{json}")
-      @server.put("/#{@db}/#{path}", json)
+      benchmark{ @server.put("/#{@db}/#{path}", json)}
     end
     
     def unesc(path)
@@ -140,8 +140,17 @@ module RelaxDB
     def name=(name)
       @db = name
     end
-        
+    
     private
+    
+    def benchmark
+      start = Time.now
+      res = yield
+      finish = Time.now
+      t = ((finish - start)*1000).to_i
+      @logger.info "(#{t}ms)"
+      res
+    end
     
     def create_db_if_non_existant(name)
       begin
