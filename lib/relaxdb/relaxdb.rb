@@ -61,6 +61,11 @@ module RelaxDB
       db.replicate_db source, target
     end
     
+    def bulk_delete(*objs)
+      resp = db.post("_bulk_docs", { "docs" => objs.collect {|o| {'_id'=> o._id, '_rev' => o._rev, '_deleted' => true}} }.to_json )
+      objs
+    end
+    
     def bulk_save!(*objs)
       pre_save_success = objs.inject(true) { |s, o| s &= o.pre_save }
       raise ValidationFailure, objs unless pre_save_success
@@ -93,25 +98,32 @@ module RelaxDB
     end
     
     def reload(obj)
+      remove_from_cache obj
       load(obj._id)
     end
   
     def load(ids)
       # RelaxDB.logger.debug(caller.inject("#{db.name}/#{ids}\n") { |a, i| a += "#{i}\n" })
-      
-      if ids.is_a? Array
+      r = if ids.is_a? Array
         resp = db.post("_all_docs?include_docs=true", {:keys => ids}.to_json)
         data = JSON.parse(resp.body)
-        data["rows"].map { |row| row["doc"] ? create_object(row["doc"]) : nil }
+        rows = data["rows"].map { |row| row["doc"] ? create_object(row["doc"]) : nil }
+        if c = cache
+          rows.each {|o| store_in_cache o if o}
+        end
+        rows          
       else
+          cached_version = cached(ids)
+          return cached_version if cached_version
         begin
           resp = db.get(ids)
           data = JSON.parse(resp.body)
-          create_object(data)
+          object = create_object(data)
         rescue HTTP_404
           nil
         end
       end
+      r
     end
     
     def load!(ids)
@@ -127,6 +139,7 @@ module RelaxDB
       q = Query.new(view_name, params)
       
       resp = q.keys ? db.post(q.view_path, q.keys) : db.get(q.view_path)
+      
       hash = JSON.parse(resp.body)
       
       if q.raw then hash
@@ -182,8 +195,10 @@ module RelaxDB
       klass = data.is_a?(Hash) && data.delete("relaxdb_class")
       if klass
         k = klass.split("::").inject(Object) { |x, y| x.const_get y }
-        k.new data
-      else 
+        r = k.new data
+        store_in_cache(r)
+        r
+      else
         # data is a scalar or not of a known class
         ViewObject.create data
       end
