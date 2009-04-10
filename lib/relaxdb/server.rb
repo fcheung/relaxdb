@@ -3,64 +3,66 @@ module RelaxDB
   class HTTP_404 < StandardError; end
   class HTTP_409 < StandardError; end
   class HTTP_412 < StandardError; end
-
+  
   class Server
-        
-    def initialize(host, port)
-      @host = host
-      @port = port
+    class Response
+      attr_reader :body
+      def initialize body
+        @body = body
+      end
     end
-
+    
+    def initialize(host, port)
+      @host, @port = host, port
+    end
+    
     def delete(uri)
-      request(Net::HTTP::Delete.new(uri))
+      request(uri, 'delete'){ |c| c.http_delete}
     end
 
     def get(uri)
-      request(Net::HTTP::Get.new(uri))
+      request(uri, 'get'){ |c| c.http_get}
     end
 
     def put(uri, json)
-      req = Net::HTTP::Put.new(uri)
-      req["content-type"] = "application/json"
-      req.body = json
-      request(req)
+      request(uri, 'put') do |c| 
+        c.headers['content-type'] = 'application/json'
+        c.http_put json
+      end
     end
 
     def post(uri, json)
-      req = Net::HTTP::Post.new(uri)
-      req["content-type"] = "application/json"
-      req.body = json
-      request(req)
+      request(uri, 'post') do |c| 
+        c.headers['content-type'] = 'application/json'
+        c.http_post json
+      end
     end
 
-    def request(req)
-      res = Net::HTTP.start(@host, @port) {|http|
-        http.request(req)
-      }
-      if (not res.kind_of?(Net::HTTPSuccess))
-        handle_error(req, res)
+    def request(uri, method)
+      c = Curl::Easy.new "http://#{@host}:#{@port}#{uri}"
+      yield c
+      
+      if c.response_code < 200 || c.response_code >= 300
+        status_line = c.header_str.split('\r\n').first
+        msg = "#{c.response_code}:#{status_line}\nMETHOD:#{method}\nURI:#{uri}\n#{c.body_str}"
+        begin
+          klass = RelaxDB.const_get("HTTP_#{c.response_code}")
+          e = klass.new(msg)
+        rescue
+          e = RuntimeError.new(msg)
+        end
+
+        raise e
       end
-      res
-    end
-    
+      Response.new c.body_str
+    end  
+
     def to_s
       "http://#{@host}:#{@port}/"
     end
-    
-    private
 
-    def handle_error(req, res)
-      msg = "#{res.code}:#{res.message}\nMETHOD:#{req.method}\nURI:#{req.path}\n#{res.body}"
-      begin
-        klass = RelaxDB.const_get("HTTP_#{res.code}")
-        e = klass.new(msg)
-      rescue
-        e = RuntimeError.new(msg)
-      end
-
-      raise e
-    end
   end
+  
       
   class CouchDB
 
