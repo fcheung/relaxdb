@@ -169,7 +169,7 @@ module RelaxDB
     def initialize(config)
       @get_count, @post_count, @put_count = 0, 0, 0
       @server = RelaxDB::Server.new(config[:host], config[:port], config[:cache_store])
-      @logger = config[:logger] ? config[:logger] : Logger.new(Tempfile.new('couchdb.log'))
+      @logger = config[:logger] ? config[:logger] : Logger.new(Tempfile.new('relaxdb.log'))
     end
     
     def use_db(name)
@@ -181,6 +181,7 @@ module RelaxDB
       @server.get("/#{name}") rescue false
     end
     
+    # URL encode slashes e.g. RelaxDB.delete_db "foo%2Fbar"
     def delete_db(name)
       @logger.info("Deleting database #{name}")
       @server.delete("/#{name}")
@@ -193,8 +194,9 @@ module RelaxDB
     def replicate_db(source, target)
       @logger.info("Replicating from #{source} to #{target}")
       create_db_if_non_existant target      
-      data = { "source" => source, "target" => target}
-      @server.post("/_replicate", data.to_json)
+      # Manual JSON encoding to allow for dbs containing a '/'
+      data = %Q({"source":"#{source}","target":"#{target}"})       
+      @server.post("/_replicate", data)
     end
 
     def delete(path=nil)
@@ -237,6 +239,14 @@ module RelaxDB
       @db = name
     end
     
+    def req_count
+      get_count + put_count + post_count
+    end
+    
+    def reset_req_count
+      @get_count = @put_count = @post_count = 0
+    end
+            
     private
     
     def benchmark

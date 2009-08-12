@@ -39,11 +39,7 @@ describe RelaxDB do
       ta.should == t1
       tb.should == t2
     end
-    
-    it "should succeed when passed no args" do
-      RelaxDB.bulk_save
-    end
-    
+        
     it "should return false on failure" do
       c = Class.new(RelaxDB::Document) do
         property :foo, :validator => lambda { false }
@@ -70,6 +66,60 @@ describe RelaxDB do
       RelaxDB.bulk_save(x).first.foo.should == :bar
     end
     
+    it "should save non conflicting docs and mark conflicting docs" do
+      p1, p2 = Atom.new.save!, Atom.new.save!
+      p1.dup.save!
+      RelaxDB.bulk_save p1, p2
+      p1._rev.should =~ /1-/
+      p1.should be_update_conflict
+      p2._rev.should =~ /2-/
+    end
+    
+    #
+    # This spec is as much a verification of my understanding of
+    # bulk_save semantics as it is a test of RelaxDB
+    #
+    # See http://mail-archives.apache.org/mod_mbox/couchdb-dev/200905.mbox/%3CF476A3D8-8F50-40A0-8668-C00D72196FBA@apache.org%3E
+    # for an explanation of the final section 
+    #
+    describe "all-or-nothing" do
+      it "should save non conflicting and conflicting docs" do
+        p1, p2 = Primitives.new(:num => 1).save!, Primitives.new(:num => 2).save!
+        p1d = p1.dup
+        p1d.num = 11
+        p1d.save!
+        p1.num = 6
+        RelaxDB.bulk_save :all_or_nothing, p1, p2
+        p1._rev.should =~ /2-/
+        p2._rev.should =~ /2-/
+        
+        p1 = RelaxDB.load p1._id, :conflicts => true
+        p1n1 = p1.num
+        p1 = RelaxDB.load p1._id, :rev => p1._conflicts[0]
+        p1n2 = p1.num
+        if p1n1 == 11
+          p1n2.should == 6
+        else
+          p1n1.should == 6 && p1n2.should == 11
+        end
+      end
+      
+      #
+      # Test behind 
+      # http://mail-archives.apache.org/mod_mbox/couchdb-dev/200905.mbox/%3CF476A3D8-8F50-40A0-8668-C00D72196FBA@apache.org%3E
+      # Effectively defunct
+      # 
+      # it "non-deterministic winner" do
+      #   p = Primitives.new(:num => 1).save!
+      #   pd = p.dup
+      #   p.num = 2
+      #   p.save!
+      #   pd.num = 3
+      #   RelaxDB.bulk_save :all_or_nothing, pd
+      #   RelaxDB.reload(p).num.should == 2
+      # end
+    end
+        
   end
 
   describe ".bulk_delete" do
@@ -91,6 +141,16 @@ describe RelaxDB do
   
   describe ".bulk_save!" do
     
+    it "should succeed when passed no args" do
+      RelaxDB.bulk_save!
+    end
+    
+    it "should raise when passed a nil value" do
+      lambda do
+        RelaxDB.bulk_save! *[nil]
+      end.should raise_error
+    end
+    
     it "should raise an exception if a obj fails validation" do
       c = Class.new(RelaxDB::Document) do
         property :foo, :validator => lambda { false }
@@ -98,11 +158,19 @@ describe RelaxDB do
       lambda { RelaxDB.bulk_save!(c.new) }.should raise_error(RelaxDB::ValidationFailure)
     end
     
-    it "will not raise an exception if a document update conflict occurs on save" do
-      Atom.new(:_id => "a1").save!
-      RelaxDB.bulk_save! Atom.new(:_id => "a1")
+    it "should raise an exception on document conflict after all docs have been processed" do
+      p1, p2 = Atom.new.save!, Atom.new.save!
+      p1.dup.save!
+      lambda { RelaxDB.bulk_save!(p1, p2) }.should raise_error(RelaxDB::UpdateConflict)
+      p2._rev.should =~ /2-/
     end
     
+  end
+  
+  describe ".db_info" do
+    it "should return db info" do
+      RelaxDB.db_info.doc_count.should == 1
+    end
   end
   
   describe ".replicate_db" do
@@ -222,6 +290,16 @@ describe RelaxDB do
       ar1, ar2 = RelaxDB.load! [a1._id, a2._id]
       ar1.should == a1
       ar2.should == a2
+    end
+    
+    it "should load multiple documents in order" do
+      ns = (0...100).map { rand(1_000_000_000).to_s }
+      objs = ns.map { |n| Primitives.new :_id => n }
+      RelaxDB.bulk_save! *objs
+      objs = RelaxDB.load! ns
+      (0...100).each do |i|
+        ns[i].should == objs[i]._id
+      end
     end
     
     it "should throw an exception if given a single id for a non-existant doc" do

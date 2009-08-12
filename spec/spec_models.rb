@@ -18,6 +18,7 @@ class Primitives < RelaxDB::Document
   property :true_bool
   property :false_bool
   property :created_at
+  property :updated_at
   property :empty
   
   view_by :num
@@ -179,7 +180,7 @@ class RichDescendant < Descendant
   
   references :ukulele
   property :ukulele_name,
-    :derived => [:ukulele, lambda { |p, o| o.user.name } ]
+    :derived => [:ukulele, lambda { |p, o| o.ukulele.name } ]
 end
 
 module Inh

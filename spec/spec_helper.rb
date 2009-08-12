@@ -9,8 +9,12 @@ end
 $:.unshift(File.dirname(__FILE__) + '/../lib')
 require 'relaxdb'
 
+class RdbFormatter; def call(sv, time, progname, msg); puts msg; end; end
+
 def setup_test_db
   # RelaxDB.configure :host => "localhost", :port => 5984, :design_doc => "spec_doc", :logger => Logger.new(STDOUT)
+  # RelaxDB.logger.formatter = RdbFormatter.new
+  
   RelaxDB.configure :host => "localhost", :port => 5984, :design_doc => "spec_doc"
   
   RelaxDB.delete_db "relaxdb_spec" rescue "ok"
@@ -41,4 +45,21 @@ def create_base_db
   RelaxDB.enable_view_creation
   require File.dirname(__FILE__) + '/spec_models.rb'
   puts "Created relaxdb_spec_base"
+end
+
+def roll_clock_forward(distance)
+  Time.meta_class.instance_eval do
+    define_method(:future_now) do
+      standard_now + distance
+    end
+    alias_method :standard_now, :now
+    alias_method :now, :future_now
+    begin
+      yield
+    rescue => e
+      raise e
+    ensure
+      alias_method :now, :standard_now
+    end
+  end
 end

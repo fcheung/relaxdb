@@ -61,6 +61,7 @@ module RelaxDB
   
     property :_id 
     property :_rev        
+    property :_conflicts        
     
     def self.create_validator(att, v)
       method_name = "validate_#{att}"
@@ -141,7 +142,7 @@ module RelaxDB
         # Only set instance variables on creation - object references are resolved on demand
 
         # If the variable name ends in _at, _on or _date try to convert it to a Time
-        if [/_at$/, /_on$/, /_date$/].inject(nil) { |i, r| i ||= (key =~ r) }
+        if [/_at$/, /_on$/, /_date$/, /_time$/].inject(nil) { |i, r| i ||= (key =~ r) }
             val = Time.parse(val).utc rescue val
         end
         
@@ -198,19 +199,27 @@ module RelaxDB
         resp = RelaxDB.db.put(_id, to_json)
         self._rev = JSON.parse(resp.body)["rev"]
       rescue HTTP_409
-        on_update_conflict
-        @update_conflict = true
+        conflicted
         return false
       end      
     end
+    
+    def conflicted
+      @update_conflict = true
+      on_update_conflict
+    end    
     
     def on_update_conflict
       # override with any behaviour you want to happen when
       # CouchDB returns DocumentConflict on an attempt to save
     end
     
+    def update_conflict?
+      @update_conflict
+    end    
+    
     def pre_save
-      set_created_at if new_document?
+      set_timestamps
       return false unless validates?
       return false unless before_save            
       true 
@@ -238,11 +247,7 @@ module RelaxDB
         raise ValidationFailure, self.errors.to_json
       end
     end
-        
-    def update_conflict?
-      @update_conflict
-    end
-    
+            
     def validates?
       props = properties - validation_skip_list
       prop_vals = props.map { |prop| instance_variable_get("@#{prop}") }
@@ -300,11 +305,13 @@ module RelaxDB
     end
     alias_method :id, :to_param
     
-    def set_created_at
-      if methods.include? "created_at"
+    def set_timestamps
+      if new_document? && respond_to?(:created_at)
         # Don't override it if it's already been set
         @created_at = Time.now if @created_at.nil?
       end
+      
+      @updated_at = Time.now if respond_to?(:updated_at)
     end
        
     def create_or_get_proxy(klass, relationship, opts=nil)

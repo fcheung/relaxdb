@@ -80,12 +80,32 @@ describe RelaxDB::Document do
       p.save      
     end
     
-    it "should set created_at when first saved" do
-      now = Time.now
-      created_at = Post.new.save.created_at
-      now.should be_close(created_at, 1)  
+    it "should set created_at on first save only" do
+      ts = Time.now
+      p = Post.new
+      
+      created_at = p.save.created_at
+      created_at.should be_close(ts, 1)  
+      
+      roll_clock_forward(60) do
+        created_at = p.save.created_at
+        created_at.should be_close(ts, 1)  
+      end
     end
     
+    it "should set updated_at on each save" do
+      ts = Time.now
+      p = Primitives.new
+      
+      updated_at = p.save.updated_at
+      updated_at.should be_close(ts, 1)  
+      
+      roll_clock_forward(60) do
+        updated_at = p.save.updated_at
+        updated_at.should be_close(Time.at(ts.to_i + 60), 1)  
+      end      
+    end
+        
     it "should set created_at when first saved unless supplied to the constructor" do
       back_then = Time.now - 1000
       p = Post.new(:created_at => back_then).save
@@ -185,7 +205,7 @@ describe RelaxDB::Document do
 
     it "should prevent the object from being resaved" do
       p = Atom.new.save.destroy!
-    # Exepcted failure - see http://issues.apache.org/jira/browse/COUCHDB-292      
+      # Exepcted failure - see http://issues.apache.org/jira/browse/COUCHDB-292      
       lambda { p.save! }.should raise_error
     end
     
