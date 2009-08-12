@@ -170,7 +170,7 @@ module RelaxDB
     
     alias_method :to_s, :inspect
             
-    def to_json
+    def to_json(options={})
       data = {}
       self.class.belongs_to_rels.each do |relationship, opts|
         id = instance_variable_get("@#{relationship}_id".to_sym)
