@@ -128,10 +128,6 @@ module RelaxDB
         resp = db.post("_all_docs?include_docs=true", {:keys => ids}.to_json)
         data = JSON.parse(resp.body)
         rows = data["rows"].map { |row| row["doc"] ? create_object(row["doc"]) : nil }
-        if c = cache
-          rows.each {|o| store_in_cache o if o}
-        end
-        rows          
       else
           cached_version = cached(ids)
           return cached_version if cached_version
