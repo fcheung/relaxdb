@@ -25,7 +25,7 @@ module RelaxDB
       map = <<-QUERY
       function(doc) {
         var class_match = #{kls_check kls}
-        if(class_match && #{prop_check}) {
+        if (class_match && #{prop_check}) {
           emit(#{key}, doc);
         }
       }
@@ -56,7 +56,7 @@ module RelaxDB
     def self.references_many(client_class, relationship, target_class, peers)
       map = <<-QUERY
         function(doc) {
-          if(doc.relaxdb_class == "#{target_class}" && doc.#{peers}) {
+          if (doc.relaxdb_class == "#{target_class}" && doc.#{peers}) {
             var i;
             for(i = 0; i < doc.#{peers}.length; i++) {
               emit(doc.#{peers}[i], doc);

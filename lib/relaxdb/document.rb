@@ -24,7 +24,7 @@ module RelaxDB
     class_inheritable_accessor :__view_by_list__
     self.__view_by_list__ = []
     
-    class_inheritable_accessor :belongs_to_rels, :reder => true
+    class_inheritable_accessor :belongs_to_rels, :reader => true
     self.belongs_to_rels = {}
             
     def self.property(prop, opts={})
@@ -306,12 +306,13 @@ module RelaxDB
     alias_method :id, :to_param
     
     def set_timestamps
+      now = Time.now
       if new_document? && respond_to?(:created_at)
         # Don't override it if it's already been set
-        @created_at = Time.now if @created_at.nil?
+        @created_at = now if @created_at.nil?
       end
       
-      @updated_at = Time.now if respond_to?(:updated_at)
+      @updated_at = now if respond_to?(:updated_at)
     end
        
     def create_or_get_proxy(klass, relationship, opts=nil)
@@ -372,7 +373,7 @@ module RelaxDB
       @has_many_rels << relationship
       
       if RelaxDB.create_views?
-        target_class = opts[:class]
+        target_class = opts[:class] || relationship.to_s.singularize.camel_case
         relationship_as_viewed_by_target = (opts[:known_as] || self.name.snake_case).to_s
         ViewCreator.has_n(self.name, relationship, target_class, relationship_as_viewed_by_target, opts[:order]).save
       end      
@@ -537,11 +538,11 @@ module RelaxDB
         define_method by_name do |*params|
           view_name = "#{self.name}_#{by_name}"
           if params.empty?
-            res = RelaxDB.view view_name, opts
+            res = RelaxDB.rf_view view_name, opts
           elsif params[0].is_a? Hash
-            res = RelaxDB.view view_name, opts.merge(params[0])
+            res = RelaxDB.rf_view view_name, opts.merge(params[0])
           else
-            res = RelaxDB.view(view_name, :key => params[0]).first
+            res = RelaxDB.rf_view(view_name, :key => params[0]).first
           end            
         end
       end
