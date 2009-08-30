@@ -37,6 +37,18 @@ describe RelaxDB::HasManyProxy do
       m.multi_word_children[0].should == c
     end    
             
+    
+    it "should respect the specified ordering" do
+      u = User.new.save
+      u.ordered_items << Item.new( :name => 'alice')
+      u.ordered_items << Item.new( :name => 'dave')
+      u.ordered_items << Item.new( :name => 'claire')
+      u.ordered_items << Item.new( :name => 'bob')
+      u = RelaxDB.load u._id
+
+      ['alice','bob','claire','dave'].should == u.ordered_items.collect {|item| item.name}
+    end
+    
     describe "#<<" do
 
       it "should link the added item to the parent" do

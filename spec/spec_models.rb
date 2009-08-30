@@ -66,6 +66,7 @@ class User < RelaxDB::Document
   has_many :invites_received, :class => "Invite", :known_as => :recipient
   has_many :invites_sent, :class => "Invite", :known_as => :sender
   
+  has_many :ordered_items, :class => 'Item', :order => :name
   view_by :name, :age
 
 end

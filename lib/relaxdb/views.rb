@@ -36,11 +36,16 @@ module RelaxDB
     end
     
   
-    def self.has_n(client_class, relationship, target_class, relationship_to_client)
+    def self.has_n(client_class, relationship, target_class, relationship_to_client, order=nil)
+      if order
+        key = "[doc.#{relationship_to_client}_id, doc.#{order} ? doc.#{order} : null]"
+      else
+        key = "doc.#{relationship_to_client}_id"
+      end
       map = <<-QUERY
         function(doc) {
           if(doc.relaxdb_class == "#{target_class}" && doc.#{relationship_to_client}_id)
-            emit(doc.#{relationship_to_client}_id, doc);
+            emit( #{key}, doc);
         }
       QUERY
       
