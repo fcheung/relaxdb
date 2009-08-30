@@ -17,7 +17,8 @@ describe RelaxDB::HasManyProxy do
           "",           # client_class
           :foo_bars,    # relationship          
           "FooBar",     # target_class
-          ""            # relationship_to_client
+          "",           # relationship_to_client
+          nil           # ordering
         ).and_return view
         klass = Class.new(RelaxDB::Document) do
           has_many :foo_bars
@@ -30,7 +31,8 @@ describe RelaxDB::HasManyProxy do
           "",         # client_class
           :foo_bars,  # relationship          
           "Bar",     # target_class
-          ""          # relationship_to_client
+          "",          # relationship_to_client
+          nil           # ordering
         ).and_return view
         klass = Class.new(RelaxDB::Document) do
           has_many :foo_bars, :class => "Bar"
