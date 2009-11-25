@@ -1,3 +1,4 @@
+require 'typhoeus'
 module RelaxDB
   
   class HTTP_404 < StandardError; end
@@ -76,46 +77,59 @@ module RelaxDB
       @host, @port = host, port
       @cache_store = cache_store || NilStore.new
     end
-    
+
+
     def delete(uri)
-      request(uri, 'delete'){ |c| c.http_delete}
+      handle_response Typhoeus::Request.delete("http://#{@host}:#{@port}#{uri}")
     end
 
     def get(uri)
       etag = cache_store.get_etag uri
-      
-      response = request(uri, 'get') do |c| 
-        c.headers['If-None-Match'] = etag
-        c.http_get
+      if etag
+        headers = {:'If-None-Match' => etag}
+      else
+        headers = {}
       end
       
+      response = handle_response Typhoeus::Request.get("http://#{@host}:#{@port}#{uri}", :headers => headers)
+    
       if etag && response.status == 304
         data = cache_store.get_data uri
         if data
           return Response.new( 200, data, etag)
         else
           #we don't have the data in our cache anymore boohoo
-          response = request(uri, 'get') {|c| c.http_get }
+          response = handle_response Typhoeus::Request.get("http://#{@host}:#{@port}#{uri}")
         end
       end
       
       cache_store.store uri, response.body, response.etag
       response
     end
-
+    
     def put(uri, json)
-      request(uri, 'put') do |c| 
-        c.headers['content-type'] = 'application/json'
-        c.http_put json
-      end
+      handle_response Typhoeus::Request.put("http://#{@host}:#{@port}#{uri}", :body => json, :headers => {:'Content-Type' => 'application/json'})
     end
 
     def post(uri, json)
-      request(uri, 'post') do |c| 
-        c.headers['content-type'] = 'application/json'
-        c.http_post json
-      end
+      handle_response Typhoeus::Request.post("http://#{@host}:#{@port}#{uri}", :body => json, :headers => {:'Content-Type' => 'application/json'})
     end
+    
+    def handle_response response
+        
+      if response.headers.strip =~ /^etag:\s*(.*)\r$/i
+        etag = $1
+      else
+        etag = nil
+      end
+      
+      if response.code < 200 || response.code >= 300 && response.code != 304
+        status_line = response.headers.split('\r\n').first
+        handle_error response.code, status_line, response.requested_http_method, response.requested_url, ''
+      end
+      Response.new response.code, response.body, etag
+    end
+
 
     def request(uri, method)
       c = Curl::Easy.new "http://#{@host}:#{@port}#{uri}"
