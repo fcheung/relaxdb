@@ -13,6 +13,7 @@ module RelaxDB
     
     def get_data(cache_key)
       entry = @cache.get "data:#{cache_key}"
+      return nil if !entry
       if entry[:deflated]
         Zlib::Inflate.inflate(entry[:data])
       else
