@@ -131,27 +131,6 @@ module RelaxDB
     end
 
 
-    def request(uri, method)
-      c = Curl::Easy.new "http://#{@host}:#{@port}#{uri}"
-      etag = status_line = nil
-
-      c.on_header do |header_string|
-        if !status_line
-          status_line = header_string
-        elsif header_string.strip =~ /etag:\s*(.*)/i
-          etag = $1
-        end
-        header_string.length
-      end
-      
-      yield c
-      
-      if (c.response_code < 200 || c.response_code >= 300) && c.response_code != 304
-        handle_error c.response_code, status_line, method, uri, c.body_str
-      end
-      Response.new c.response_code, c.body_str, etag
-    end  
-
     def to_s
       "http://#{@host}:#{@port}/"
     end
