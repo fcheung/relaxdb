@@ -20,6 +20,9 @@ module RelaxDB
     end
     def store(cache_key, data,etag)
     end
+    
+    def clear
+    end
   end
   
   class MemoryStore
@@ -28,6 +31,10 @@ module RelaxDB
       @maximum_entry_size = options[:maximum_entry_size]
       @size = options[:size] || 100
       @cache_order = []
+    end
+    
+    def clear
+      @cache = {}
     end
     
     def get(cache_key)
@@ -116,7 +123,6 @@ module RelaxDB
     end
     
     def handle_response response
-        
       if response.headers.strip =~ /^etag:\s*(.*)\r$/i
         etag = $1
       else
@@ -153,7 +159,7 @@ module RelaxDB
       
   class CouchDB
 
-    attr_reader :logger
+    attr_reader :logger, :server
         
     # Used for test instrumentation only i.e. to assert that 
     # an expected number of requests have been issued

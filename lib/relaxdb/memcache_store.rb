@@ -3,6 +3,11 @@ require 'memcache'
 require 'zlib'
 module RelaxDB
   class MemcacheStore
+    
+    def clear
+      @cache.flush_all
+    end
+    
     def initialize(*args_for_memcache)
       @cache = MemCache.new *args_for_memcache
     end
