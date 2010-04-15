@@ -17,6 +17,11 @@ module RelaxDB
     # Attribute symbols added to this list won't be validated on save
     attr_accessor :validation_skip_list
     
+    # Should not be used by clients - private API only
+    # TODO - cunrrently used to get around shallow copy of dup for tests
+    # might not be needed, other ways around
+    attr_accessor :data
+    
     class_inheritable_accessor :properties, :reader => true
     self.properties = []
 
@@ -35,19 +40,35 @@ module RelaxDB
     def self.property(prop, opts={})
       properties << prop
 
-      define_method(prop) do
-        instance_variable_get("@#{prop}".to_sym)        
+      define_method(prop) do                
+        val = @data[prop.to_s]
+
+        # Consider calling out to a method here - might be faster
+        # than having it in each define_method - in fact, probably is
+        
+        # TODO: consider freezing prop names - more upto json - nothing for me to do
+        if TIME_REGEXP =~ prop.to_s
+          val = Time.parse(val).utc rescue val
+        end
+        
+        val
+        
+        # instance_variable_get("@#{prop}".to_sym)        
       end
 
       define_method("#{prop}=") do |val|
-        instance_variable_set("@#{prop}".to_sym, val)
+        # instance_variable_set("@#{prop}".to_sym, val)
+        @data[prop.to_s] = val
       end
       
       if opts[:default]
         define_method("__set_default_#{prop}__") do
-          default = opts[:default]
-          default = default.is_a?(Proc) ? default.call : default
-          instance_variable_set("@#{prop}".to_sym, default)
+          if @data[prop.to_s].nil?
+            default = opts[:default]
+            val = default.is_a?(Proc) ? default.call : default
+            @data[prop.to_s] = val
+          end
+          # instance_variable_set("@#{prop}".to_sym, default)
         end
       end
       
@@ -123,48 +144,45 @@ module RelaxDB
       end
     end
     
-    def initialize(hash={})
-      unless hash["_id"]
-        self._id = UuidGenerator.uuid 
-      end
-      
+    # Lots of tests pass in hash with symbols - we want strings only. or maybe not.
+    def initialize(hash={})      
       @errors = Errors.new
       @save_list = []
       @validation_skip_list = []
       
+      if hash["_rev"].nil?
+        # If there's no rev, it's a new document. Clients may use symbols
+        # as keys so convert all to string first. 
+        # The data keys are String as this is what JSON.parse gives us.
+        # Using symbols as keys is mostly swimming uphill
+        # also remove attempts to set associations
+        @data = {}
+        @data['_id'] = hash['_id'] || hash[:'_id']
+      else
+        @data = hash
+      end
+      
+      unless @data["_id"]
+        @data["_id"] = UuidGenerator.uuid
+      end      
+      
       # Set default properties if this object isn't being loaded from CouchDB
-      unless hash["_rev"]
+      unless @data["_rev"]
         default_methods = methods.select { |m| m =~ /__set_default/ }
         default_methods.map! { |m| m.to_sym } if RUBY_VERSION.to_f < 1.9
         properties.each do |prop|
-         if default_methods.include? "__set_default_#{prop}__".to_sym
-           send("__set_default_#{prop}__")
-         end
-        end
-      end
-            
-      @set_derived_props = hash["_rev"] ? false : true
-      set_attributes(hash)
-      @set_derived_props = true
-    end
-    
-    def set_attributes(data)
-      data.each do |key, val|
-        # Only set instance variables on creation - object references are resolved on demand
-
-        # If the variable name ends in _at, _on or _date try to convert it to a Time
-        if TIME_REGEXP =~ key.to_s
-          val = Time.parse(val).utc rescue val
+          if default_methods.include? "__set_default_#{prop}__".to_sym
+            send("__set_default_#{prop}__")
+          end
         end
         
-        if @set_derived_props
+        
+        hash.each do |key, val|
           send("#{key}=".to_sym, val)
-        else
-          instance_variable_set("@#{key}", val)
-        end     
+        end
       end
-    end  
-            
+    end
+                
     def inspect
       s = "#<#{self.class}:#{self.object_id}"
       properties.each do |prop|
@@ -178,23 +196,24 @@ module RelaxDB
       s << ", errors: #{errors.inspect}" unless errors.empty?
       s << ", save_list: #{save_list.map { |o| o.inspect }.join ", " }" unless save_list.empty?
       s << ">"
+      
+      to_json.gsub("\"", "")
     end
     
     alias_method :to_s, :inspect
             
     def to_json(options={})
-      data = {}
-      self.class.belongs_to_rels.each do |relationship, opts|
-        id = instance_variable_get("@#{relationship}_id".to_sym)
-        data["#{relationship}_id"] = id if id
-      end
-      properties.each do |prop|
-        prop_val = instance_variable_get("@#{prop}".to_sym)
-        data["#{prop}"] = prop_val if prop_val
-      end
-      data["errors"] = errors unless errors.empty?
-      data["relaxdb_class"] = self.class.name
-      data.to_json      
+      # data = {}
+      # self.class.belongs_to_rels.each do |relationship, opts|
+      #   id = instance_variable_get("@#{relationship}_id".to_sym)
+      #   data["#{relationship}_id"] = id if id
+      # end
+      # properties.each do |prop|
+      #   prop_val = instance_variable_get("@#{prop}".to_sym)
+      #   data["#{prop}"] = prop_val if prop_val
+      # end
+      @data["relaxdb_class"] = self.class.name
+      @data.to_json      
     end
             
     # Not yet sure of final implemention for hooks - may lean more towards DM than AR
@@ -260,13 +279,13 @@ module RelaxDB
         raise ValidationFailure, self.errors.to_json
       end
     end
-            
+
     def validates?
       props = properties - validation_skip_list
-      prop_vals = props.map { |prop| instance_variable_get("@#{prop}") }
+      prop_vals = props.map { |prop| @data[prop.to_s] }
       
       rels = self.class.belongs_to_rels.keys - validation_skip_list
-      rel_vals = rels.map { |rel| instance_variable_get("@#{rel}_id") }
+      rel_vals = rels.map { |rel| @data["#{rel}_id"] }
       
       att_names = props + rels
       att_vals =  prop_vals + rel_vals
@@ -298,22 +317,22 @@ module RelaxDB
         v_msg_meths.map! { |m| m.to_sym } if RUBY_VERSION.to_f < 1.9
         if v_msg_meths.include? "#{att_name}_validation_msg".to_sym
           begin
-            @errors[att_name] = send("#{att_name}_validation_msg", att_val)
+            @errors[att_name.to_sym] = send("#{att_name}_validation_msg", att_val)
           rescue => e
             puts "#{e.backtrace[0, 5].join("\n")}"
             RelaxDB.logger.warn "Validation_msg for #{att_name} with #{att_val} raised #{e}"
-            @errors[att_name] = "validation_msg_exception:invalid:#{att_val}"
+            @errors[att_name.to_sym] = "validation_msg_exception:invalid:#{att_val}"
           end
-        elsif @errors[att_name].nil?
+        elsif @errors[att_name.to_sym].nil?
           # Only set a validation message if a validator hasn't already set one
-          @errors[att_name] = "invalid:#{att_val}"
+          @errors[att_name.to_sym] = "invalid:#{att_val}"
         end
       end
       success
     end
             
     def new_document?
-      @_rev.nil?
+      self._rev.nil?
     end
     alias_method :new_record?, :new_document?
     alias_method :unsaved?, :new_document?
@@ -327,10 +346,10 @@ module RelaxDB
       now = Time.now
       if new_document? && respond_to?(:created_at)
         # Don't override it if it's already been set
-        @created_at = now if @created_at.nil?
+        @data["created_at"] = now if @data["created_at"].nil?
       end
       
-      @updated_at = now if respond_to?(:updated_at)
+      @data["updated_at"] = now if respond_to?(:updated_at)
     end
        
     def create_or_get_proxy(klass, relationship, opts=nil)
@@ -355,10 +374,9 @@ module RelaxDB
       properties << relationship
       
       # Keep track of the relationship so peers can be disassociated on destroy
-      @references_many_rels ||= []
-      @references_many_rels << relationship
+      references_many_rels[relationship.to_s] = opts
      
-      id_arr_sym = "@#{relationship}".to_sym
+      id_arr = relationship.to_s
       
       if RelaxDB.create_views?
         target_class = opts[:class]
@@ -367,28 +385,27 @@ module RelaxDB
       end            
      
       define_method(relationship) do
-        instance_variable_set(id_arr_sym, []) unless instance_variable_defined? id_arr_sym
+        data[id_arr] = [] unless data[id_arr]
         create_or_get_proxy(ReferencesManyProxy, relationship, opts)
       end
       
       define_method("#{relationship}_ids") do
-        instance_variable_set(id_arr_sym, []) unless instance_variable_defined? id_arr_sym
-        instance_variable_get(id_arr_sym)
+        data[id_arr] = [] unless data[id_arr]
+        data[id_arr]
       end
     
       define_method("#{relationship}=") do |val|
         # Don't invoke this method unless you know what you're doing
-        instance_variable_set(id_arr_sym, val)
+        data[id_arr] = val
       end           
     end
    
     def self.references_many_rels
-      @references_many_rels ||= []
+      @references_many_rels ||= {}
     end
    
     def self.has_many(relationship, opts={})
-      @has_many_rels ||= []
-      @has_many_rels << relationship
+      has_many_rels[relationship.to_s]=opts
       
       if RelaxDB.create_views?
         target_class = opts[:class] || relationship.to_s.singularize.camel_case
@@ -402,19 +419,18 @@ module RelaxDB
       
       define_method("#{relationship}=") do |children|
         create_or_get_proxy(HasManyProxy, relationship, opts).children = children
-        write_derived_props(relationship) if @set_derived_props
+        write_derived_props(relationship)
         children
       end      
     end
 
     def self.has_many_rels
       # Don't force clients to check its instantiated
-      @has_many_rels ||= []
+      @has_many_rels ||= {}
     end
             
     def self.has_one(relationship)
-      @has_one_rels ||= []
-      @has_one_rels << relationship
+      has_one_rels[relationship.to_s]={}
       
       if RelaxDB.create_views?
         target_class = relationship.to_s.camel_case      
@@ -428,17 +444,17 @@ module RelaxDB
       
       define_method("#{relationship}=") do |new_target|
         create_or_get_proxy(HasOneProxy, relationship).target = new_target
-        write_derived_props(relationship) if @set_derived_props
+        write_derived_props(relationship)
         new_target
       end
     end
     
     def self.has_one_rels
-      @has_one_rels ||= []      
+      @has_one_rels ||= {}
     end
             
     def self.belongs_to(relationship, opts={})
-      belongs_to_rels[relationship] = opts
+      belongs_to_rels[relationship.to_s] = opts
 
       define_method(relationship) do
         create_or_get_proxy(BelongsToProxy, relationship).target
@@ -446,18 +462,18 @@ module RelaxDB
       
       define_method("#{relationship}=") do |new_target|
         create_or_get_proxy(BelongsToProxy, relationship).target = new_target
-        write_derived_props(relationship) if @set_derived_props
+        write_derived_props(relationship)
       end
       
       # Allows all writers to be invoked from the hash passed to initialize 
       define_method("#{relationship}_id=") do |id|
-        instance_variable_set("@#{relationship}_id".to_sym, id)
-        write_derived_props(relationship) if @set_derived_props
+        @data["#{relationship}_id"] = id
+        write_derived_props(relationship)
         id
       end
 
       define_method("#{relationship}_id") do
-        instance_variable_get("@#{relationship}_id")
+        @data["#{relationship}_id"]
       end
       
       create_validator(relationship, opts[:validator]) if opts[:validator]
@@ -487,15 +503,15 @@ module RelaxDB
     # TODO: Current implemention may be inappropriate - causing CouchDB to try to JSON
     # encode undefined. Ensure nil is serialized? See has_many_spec#should nullify its child relationships
     def destroy!
-      self.class.references_many_rels.each do |rel|
+      self.class.references_many_rels.each do |rel, opts|
         send(rel).clear
       end
       
-      self.class.has_many_rels.each do |rel|
+      self.class.has_many_rels.each do |rel, opts|
         send(rel).clear
       end
       
-      self.class.has_one_rels.each do |rel|
+      self.class.has_one_rels.each do |rel,opts|
         send("#{rel}=".to_sym, nil)
       end
       

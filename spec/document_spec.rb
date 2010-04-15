@@ -117,12 +117,11 @@ describe RelaxDB::Document do
       p.created_at.should be_close(back_then, 1)
     end
     
-    it "should set document conflict state on conflicting save" do
-      a1 = Atom.new
-      a2 = a1.dup
+    it "should set document conflict state on conflicting save" do      
+      a1, a2 = Atom.new(:_id => "a1"), Atom.new(:_id => "a1")
       a1.save!
       a2.save
-      a2.should be_update_conflict
+      a2.should be_update_conflict      
     end
         
   end
@@ -144,14 +143,14 @@ describe RelaxDB::Document do
     end   
     
     it "should raise UpdateConflict on an update conflict" do
-      a1 = Atom.new
-      a2 = a1.dup
+      a1, a2 = Atom.new(:_id => "a1"), Atom.new(:_id => "a1")
       a1.save!
       lambda { a2.save! }.should raise_error(RelaxDB::UpdateConflict)      
     end
     
   end
       
+  # This has always been dodgy - no longer supported
   describe "user defined property reader" do
     
     it "should not effect normal operation" do
@@ -163,26 +162,23 @@ describe RelaxDB::Document do
     it "should not modify internal state" do
       o = BespokeReader.new(:val => 101).save
       o = RelaxDB.load o._id
-      o.instance_variable_get(:@val).should == 101
+      o.data['val'].should == 101
     end
             
   end
 
   describe "user defined property writer" do
     
-    it "should not be used to modify state" do
+    # So this works now, but it hasn't in the past - this behaviour has changed
+    # many times. Use with caution i.e. it wouldn't be wise to rely on this
+    # across a large swathe of your codebase.
+    
+    it "should only be used to modify state with caution" do      
       o = BespokeWriter.new(:val => 101).save
       o = RelaxDB.load o._id
-      o.val.should == 81
+      o.data['val'].should == 91
     end
     
-    it "may be used if effectively idempotent" do
-      o = BespokeWriter.new(:tt => "2009/04/01").save
-      RelaxDB.reload(o).tt.should == Time.parse("2009/04/01")
-      
-      o = BespokeWriter.new(:tt => Time.now).save
-      RelaxDB.reload(o).tt.should be_close(Time.now, 2)
-    end
         
   end
   

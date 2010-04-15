@@ -17,6 +17,7 @@ describe RelaxDB::BelongsToProxy do
     it "should be establishable via constructor attribute" do
       p = Photo.new
       r = Rating.new :photo => p
+      r.data['photo'].should be_nil
       r.photo.should == p
     end
     

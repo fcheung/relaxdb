@@ -40,14 +40,14 @@ end
 
 class BespokeReader < RelaxDB::Document
   property :val
-  def val; @val + 5; end
+  def val; @data['val'] + 5; end
 end
 
 class BespokeWriter < RelaxDB::Document
   property :val
   property :tt
-  def val=(v); @val = v - 10; end
-  def tt=(t); @tt = t.is_a?(String) ? Time.parse(t) : t; end
+  def val=(v); @data['val'] = v - 10; end
+  def tt=(t); @data['tt'] = t.is_a?(String) ? Time.parse(t) : t; end
 end
 
 class Invite < RelaxDB::Document

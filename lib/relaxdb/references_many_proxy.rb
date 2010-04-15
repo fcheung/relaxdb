@@ -75,11 +75,11 @@ module RelaxDB
     end
       
     def inspect
-      @client.instance_variable_get("@#{@relationship}".to_sym).inspect
+      @client.data[@relationship.to_s].inspect
     end
       
     def peer_ids
-      @client.instance_variable_get("@#{@relationship}".to_sym)
+      @client.data[@relationship.to_s]
     end
   
     alias to_id_a peer_ids
