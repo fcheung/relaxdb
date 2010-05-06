@@ -2,8 +2,6 @@ require 'rubygems'
 require 'extlib'
 require 'json'
 require 'uuid'
-gem 'taf2-curb'
-require 'curb'
 
 require 'cgi'
 require 'net/http'
