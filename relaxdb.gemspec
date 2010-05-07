@@ -37,7 +37,7 @@ Gem::Specification.new do |s|
    "lib/relaxdb/uuid_generator.rb",
    "lib/relaxdb/taf2_curb_server.rb",
    "lib/relaxdb/validators.rb",
-   "lib/relaxdb/view_by_delegator",
+   "lib/relaxdb/view_by_delegator.rb",
    "lib/relaxdb/view_object.rb",
    "lib/relaxdb/view_result.rb",
    "lib/relaxdb/view_uploader.rb",
