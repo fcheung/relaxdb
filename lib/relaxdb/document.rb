@@ -21,8 +21,11 @@ module RelaxDB
     class_inheritable_accessor :derived_prop_writers
     self.derived_prop_writers = {}
     
+    class_inheritable_accessor :__view_docs_by_list__
+    self.__view_docs_by_list__ = []
+    
     class_inheritable_accessor :__view_by_list__
-    self.__view_by_list__ = []
+    self.__view_by_list__ = []    
     
     class_inheritable_accessor :belongs_to_rels, :reader => true
     self.belongs_to_rels = {}
@@ -39,7 +42,7 @@ module RelaxDB
       end
       
       if opts[:default]
-        define_method("set_default_#{prop}") do
+        define_method("__set_default_#{prop}__") do
           default = opts[:default]
           default = default.is_a?(Proc) ? default.call : default
           instance_variable_set("@#{prop}".to_sym, default)
@@ -69,11 +72,15 @@ module RelaxDB
         v.arity == 1 ?
           define_method(method_name) { |att_val| v.call(att_val) } :
           define_method(method_name) { |att_val| v.call(att_val, self) }
-      elsif instance_methods.include? "validator_#{v}"
-        define_method(method_name) { |att_val| send("validator_#{v}", att_val, self) }
       else
-        define_method(method_name) { |att_val| send(v, att_val) }
-      end          
+        v_meths = instance_methods.select { |m| m =~ /validator_/ }
+        v_meths.map! { |m| m.to_sym } if RUBY_VERSION.to_f < 1.9
+        if v_meths.include? "validator_#{v}".to_sym
+          define_method(method_name) { |att_val| send("validator_#{v}", att_val, self) }
+        else
+          define_method(method_name) { |att_val| send(v, att_val) }
+        end          
+      end
     end
     
     def self.create_validation_msg(att, validation_msg)
@@ -82,7 +89,7 @@ module RelaxDB
           define_method("#{att}_validation_msg") { |att_val| validation_msg.call(att_val) } :
           define_method("#{att}_validation_msg") { |att_val| validation_msg.call(att_val, self) } 
       else  
-        define_method("#{att}_validation_msg") { validation_msg } 
+        define_method("#{att}_validation_msg") { |att_val| validation_msg } 
       end
     end
     
@@ -122,12 +129,14 @@ module RelaxDB
       @errors = Errors.new
       @save_list = []
       @validation_skip_list = []
-
+      
       # Set default properties if this object isn't being loaded from CouchDB
       unless hash["_rev"]
+        default_methods = methods.select { |m| m =~ /__set_default/ }
+        default_methods.map! { |m| m.to_sym } if RUBY_VERSION.to_f < 1.9
         properties.each do |prop|
-         if respond_to?("set_default_#{prop}")
-           send("set_default_#{prop}")
+         if default_methods.include? "__set_default_#{prop}__".to_sym
+           send("__set_default_#{prop}__")
          end
         end
       end
@@ -146,10 +155,7 @@ module RelaxDB
             val = Time.parse(val).utc rescue val
         end
         
-        # Ignore param keys that don't have a corresponding writer
-        # This allows us to comfortably accept a hash containing superflous data 
-        # such as a params hash in a controller 
-        send("#{key}=".to_sym, val) if respond_to? "#{key}="
+        send("#{key}=".to_sym, val)         
       end
     end  
             
@@ -180,6 +186,7 @@ module RelaxDB
         prop_val = instance_variable_get("@#{prop}".to_sym)
         data["#{prop}"] = prop_val if prop_val
       end
+      data["errors"] = errors unless errors.empty?
       data["relaxdb_class"] = self.class.name
       data.to_json      
     end
@@ -258,10 +265,12 @@ module RelaxDB
       att_names = props + rels
       att_vals =  prop_vals + rel_vals
       
-      total_success = true      
+      total_success = true
+      validate_methods = methods.select { |m| m =~ /validate_/ }
+      validate_methods.map! { |m| m.to_sym } if RUBY_VERSION.to_f < 1.9
       att_names.each_index do |i|
         att_name, att_val = att_names[i], att_vals[i]
-        if respond_to? "validate_#{att_name}"
+        if validate_methods.include? "validate_#{att_name}".to_sym
           total_success &= validate_att(att_name, att_val)
         end
       end
@@ -279,10 +288,13 @@ module RelaxDB
       end
 
       unless success
-        if methods.include? "#{att_name}_validation_msg"
+        v_msg_meths = methods.select { |m | m =~ /_validation_msg/ }
+        v_msg_meths.map! { |m| m.to_sym } if RUBY_VERSION.to_f < 1.9
+        if v_msg_meths.include? "#{att_name}_validation_msg".to_sym
           begin
             @errors[att_name] = send("#{att_name}_validation_msg", att_val)
           rescue => e
+            puts "#{e.backtrace[0, 5].join("\n")}"
             RelaxDB.logger.warn "Validation_msg for #{att_name} with #{att_val} raised #{e}"
             @errors[att_name] = "validation_msg_exception:invalid:#{att_val}"
           end
@@ -345,7 +357,7 @@ module RelaxDB
       if RelaxDB.create_views?
         target_class = opts[:class]
         relationship_as_viewed_by_target = opts[:known_as].to_s
-        ViewCreator.references_many(self.name, relationship, target_class, relationship_as_viewed_by_target).save
+        ViewCreator.references_many(self.name, relationship, target_class, relationship_as_viewed_by_target).add_to_design_doc
       end            
      
       define_method(relationship) do
@@ -375,7 +387,7 @@ module RelaxDB
       if RelaxDB.create_views?
         target_class = opts[:class] || relationship.to_s.singularize.camel_case
         relationship_as_viewed_by_target = (opts[:known_as] || self.name.snake_case).to_s
-        ViewCreator.has_n(self.name, relationship, target_class, relationship_as_viewed_by_target, opts[:order]).save
+        ViewCreator.has_n(self.name, relationship, target_class, relationship_as_viewed_by_target, opts[:order]).add_to_design_doc
       end      
       
       define_method(relationship) do
@@ -401,7 +413,7 @@ module RelaxDB
       if RelaxDB.create_views?
         target_class = relationship.to_s.camel_case      
         relationship_as_viewed_by_target = self.name.snake_case      
-        ViewCreator.has_n(self.name, relationship, target_class, relationship_as_viewed_by_target).save
+        ViewCreator.has_n(self.name, relationship, target_class, relationship_as_viewed_by_target).add_to_design_doc
       end
       
       define_method(relationship) do      
@@ -522,15 +534,15 @@ module RelaxDB
     end
                     
     #
-    # Creates the corresponding view and stores it in CouchDB
+    # Creates the corresponding view, emitting the doc as the val
     # Adds by_ and paginate_by_ methods to the class
     #
-    def self.view_by *atts
+    def self.view_docs_by *atts
       opts = atts.last.is_a?(Hash) ? atts.pop : {}
-      __view_by_list__ << atts
+      __view_docs_by_list__ << atts
       
       if RelaxDB.create_views?
-        ViewCreator.by_att_list([self.name], *atts).save
+        ViewCreator.docs_by_att_list([self.name], *atts).add_to_design_doc
       end
       
       by_name = "by_#{atts.join "_and_"}"
@@ -538,11 +550,11 @@ module RelaxDB
         define_method by_name do |*params|
           view_name = "#{self.name}_#{by_name}"
           if params.empty?
-            res = RelaxDB.rf_view view_name, opts
+            RelaxDB.rf_view view_name, opts
           elsif params[0].is_a? Hash
-            res = RelaxDB.rf_view view_name, opts.merge(params[0])
+            RelaxDB.rf_view view_name, opts.merge(params[0])
           else
-            res = RelaxDB.rf_view(view_name, :key => params[0]).first
+            RelaxDB.rf_view(view_name, :key => params[0]).first
           end            
         end
       end
@@ -558,12 +570,40 @@ module RelaxDB
       end
     end
     
+    
+    #
+    # Creates the corresponding view, emitting 1 as the val
+    # Adds a by_ method to this class, but does not add a 
+    # paginate method.
+    #
+    def self.view_by *atts
+      opts = atts.last.is_a?(Hash) ? atts.pop : {}
+      opts = opts.merge :raw => true, :reduce => false 
+      __view_by_list__ << atts
+      
+      if RelaxDB.create_views?
+        ViewCreator.by_att_list([self.name], *atts).add_to_design_doc
+      end
+      
+      by_name = "by_#{atts.join "_and_"}"
+      meta_class.instance_eval do
+        define_method by_name do |*params|
+          view_name = "#{self.name}_#{by_name}"
+          if params.empty?
+            ViewByDelegator.new(RelaxDB.doc_ids(view_name, opts))
+          elsif params[0].is_a? Hash
+            ViewByDelegator.new(RelaxDB.doc_ids(view_name, opts.merge(params[0])))
+          else
+            ViewByDelegator.new(
+              RelaxDB.doc_ids(view_name, opts.merge(:key => params[0]))).load!.first
+          end            
+        end
+      end      
+    end
+        
     # Create a view allowing all instances of a particular class to be retreived    
     def self.create_all_by_class_view
-      if RelaxDB.create_views?        
-        view = ViewCreator.all
-        view.save unless view.exists?
-      end        
+      ViewCreator.all.add_to_design_doc if RelaxDB.create_views?        
     end          
     
     def self.inherited subclass
@@ -587,10 +627,14 @@ module RelaxDB
       @hierarchy.uniq!
 
       if RelaxDB.create_views?
-        ViewCreator.all(@hierarchy).save
-        __view_by_list__.each do |atts|
-          ViewCreator.by_att_list(@hierarchy, *atts).save
+        ViewCreator.all(@hierarchy).add_to_design_doc
+        __view_docs_by_list__.each do |atts|
+          ViewCreator.docs_by_att_list(@hierarchy, *atts).add_to_design_doc
         end
+        
+        __view_by_list__.each do |atts|
+          ViewCreator.by_att_list(@hierarchy, *atts).add_to_design_doc
+        end        
       end
     end
                                             

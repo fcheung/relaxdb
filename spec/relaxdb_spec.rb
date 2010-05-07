@@ -179,7 +179,11 @@ describe RelaxDB do
       orig = "relaxdb_spec"
       replica = "relaxdb_spec_replicate_test"
       RelaxDB.delete_db replica rescue :ok
-      class ReplicaTest < RelaxDB::Document; end
+      
+      RelaxDB.enable_view_creation
+      class ::ReplicaTest < RelaxDB::Document; end
+      RelaxDB::View.design_doc.save
+      
       ReplicaTest.new.save # implicitly saved to orig
       RelaxDB.replicate_db orig, replica
       RelaxDB.use_db replica
@@ -341,7 +345,7 @@ describe RelaxDB do
     end
     
     it "should be queryable with a multi key post" do
-      Primitives.view_by :num
+      Primitives.view_docs_by :num
       
       5.times { |i| Primitives.new(:num => i).save }
       Primitives.by_num
@@ -350,18 +354,18 @@ describe RelaxDB do
     end
     
     it "should return nil for a reduce view with no results" do
-      Primitives.view_by :num
+      Primitives.view_docs_by :num
       RelaxDB.view("Primitives_by_num", :reduce => true).should be_nil
     end
 
     it "should return a single value for a reduce view with a single result" do
-      Primitives.view_by :num
+      Primitives.view_docs_by :num
       Primitives.new(:num => :x).save!
       RelaxDB.view("Primitives_by_num", :reduce => true).should == 1
     end
 
     it "should return an array for a reduce view with multiple results" do
-      Primitives.view_by :num
+      Primitives.view_docs_by :num
       2.times { |i| Primitives.new(:num => i).save! }
       res = RelaxDB.view("Primitives_by_num", :reduce => true, :group => true)
       res.should be_an_instance_of(Array)
@@ -399,7 +403,7 @@ describe RelaxDB do
       RelaxDB.enable_view_creation false
     
       class CvdBar < RelaxDB::Document
-        view_by :foo
+        view_docs_by :foo
         has_one :foo1
         has_many :foon
         references_many :foor
@@ -418,12 +422,16 @@ describe RelaxDB do
     before(:each) do
       create_test_db
 
-      class CveBar < RelaxDB::Document
-        view_by :foo
+      RelaxDB.enable_view_creation
+      
+      class ::CveBar < RelaxDB::Document
+        view_docs_by :foo
         has_one :foo1
         has_many :foon
         references_many :foor
       end
+      
+      RelaxDB::View.design_doc.save
     end
 
     it "should create all views" do

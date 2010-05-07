@@ -3,74 +3,51 @@ require File.dirname(__FILE__) + '/spec_models.rb'
 
 describe "view_by" do
     
-  before(:all) do
-    RelaxDB.configure :host => "localhost", :port => 5984, :design_doc => "spec_doc"    
+  before(:each) do
+    setup_test_db
+                                                                      
+    docs = (1..10).map { |i| Primitives.new :_id => "id#{i}", :str => i.to_s }
+    RelaxDB.bulk_save! *docs
   end
     
-  describe "view_by" do
+  it "should return an array of doc ids for a key" do
+    docs = Primitives.by_str :key => "5"
+    docs.first.should == "id5"
+  end
+  
+  it "should obey startkey and endkey directives" do
+    docs = Primitives.by_str :startkey => "3", :endkey => "6"
+    docs.should == %w(id3 id4 id5 id6)
+  end
+  
+  it "should return all when none specified" do
+    docs = Primitives.by_str 
+    docs.size.should == 10
+  end
+  
+  it "should return arrays that behave normally" do
+    p1 = Primitives.by_str :key => "1"
+    p2 = Primitives.by_str :key => "2"
+    RelaxDB.load!(p1 + p2).map { |p| p.str }.join.should == "12" 
+  end
+  
+  describe "delegator" do
     
-    before(:each) do
-      RelaxDB.delete_db "relaxdb_spec" rescue "ok"
-      RelaxDB.use_db "relaxdb_spec"
-      RelaxDB.enable_view_creation
-
-      class ViewByFoo < RelaxDB::Document
-        property :foo
-        view_by :foo, :descending => true
-      end
-
-    end
-    
-    it "should create corresponding views" do
-      dd = RelaxDB::DesignDocument.get "spec_doc"
-      dd.data["views"]["ViewByFoo_by_foo"].should be
-    end
-      
-    it "should create a by_ att list method" do
-      ViewByFoo.new(:foo => :bar).save!
-      res = ViewByFoo.by_foo
-      res.first.foo.should == "bar"
-    end
-        
-    it "should create a paginate_by_ att list method" do
-      ViewByFoo.new(:foo => :bar).save!      
-      res = ViewByFoo.paginate_by_foo :page_params => {}, :startkey => {}, :endkey => nil
-      res.first.foo.should == "bar"
-    end
-        
-    it "should apply query defaults to by_" do
-      ViewByFoo.new(:foo => "a").save!
-      ViewByFoo.new(:foo => "b").save!
-      
-      ViewByFoo.by_foo.map{ |o| o.foo }.should == ["b", "a"]
+    it "should load the returned doc ids" do
+      docs = Primitives.by_str :key => "5"
+      docs.load!.first.str.should == "5"
     end
     
-    it "should allow a single arg to be passed to by_" do
-      vbf = ViewByFoo.new(:foo => "a").save!
-      ViewByFoo.by_foo("a").should == vbf
+    it "should load the doc for a single param" do
+      res = Primitives.by_str "8"
+      res.str.should == "8"
     end
     
-    it "should apply query defaults to paginate_by_" do
-      ViewByFoo.new(:foo => "a").save!
-      ViewByFoo.new(:foo => "b").save!
-      
-      res = ViewByFoo.paginate_by_foo :page_params => {}, :startkey => {}, :endkey => nil
-      res.map{ |o| o.foo }.should == ["b", "a"]
+    it "should return the delegator when no params given" do
+      docs = Primitives.by_str.load!
+      docs.map { |d| d.str }.join.length.should == 11
     end
     
-    it "should allow query defaults to be overridden for paginate_by_" do
-      ViewByFoo.new(:foo => :bar).save!      
-      res = ViewByFoo.paginate_by_foo :page_params => {}, :startkey => nil, :endkey => {}, :descending => false
-      res.first.foo.should == "bar"      
-    end
-    
-    it "should allow query defaults to be overridden for by_" do
-      ViewByFoo.new(:foo => "a").save!
-      ViewByFoo.new(:foo => "b").save!
-      
-      ViewByFoo.by_foo(:descending => false).map{ |o| o.foo }.should == ["a", "b"]
-    end
-        
   end
     
 end

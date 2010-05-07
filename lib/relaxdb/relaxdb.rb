@@ -23,10 +23,11 @@ module RelaxDB
     end
     
     def enable_view_creation default=true
+      View.reset
       @create_views = default
     end
     
-    # Set in configuration and consulted by view_by, has_many, has_one, references_many and all
+    # Set in configuration and consulted by view_docs_by, has_many, has_one, references_many and all
     # Views will be added to CouchDB iff this is true
     def create_views?
       @create_views
@@ -155,6 +156,25 @@ module RelaxDB
     end
     
     #
+    # Queries a view that doesn't emit the underlying doc as a val
+    # and loads the underlying docs in a separate query.
+    #
+    def docs view_name, params
+      ids = doc_ids view_name, params
+      ids.empty? ? [] : RelaxDB.load!(ids)
+    end
+    
+    def doc_ids view_name, params
+      params[:raw] = true
+      result = view view_name, params
+      ids_from_view result
+    end
+    
+    def ids_from_view raw_result
+      raw_result["rows"].map { |h| h["id"] }
+    end    
+    
+    #
     # CouchDB defaults reduce to true when a reduce func is present.
     # RelaxDB used to indiscriminately set reduce=false, allowing clients to override
     # if desired. However, as of CouchDB 0.10, such behaviour results in 
@@ -204,7 +224,8 @@ module RelaxDB
     
     def paginate_view(view_name, atts)      
       page_params = atts.delete :page_params
-      view_keys = atts.delete :attributes
+      view_keys = atts.delete :attributes      
+      qpaginate = atts.delete :qpaginate
       
       paginate_params = PaginateParams.new atts
       raise paginate_params.error_msg if paginate_params.invalid? 
@@ -218,11 +239,61 @@ module RelaxDB
       docs = ViewResult.new(JSON.parse(db.get(query.view_path).body))
       docs.reverse! if paginate_params.order_inverted?
       
-      paginator.add_next_and_prev(docs, view_name, view_keys)
+      if qpaginate
+        paginator.add_q_next_and_prev docs, view_name, view_keys
+      else
+        paginator.add_next_and_prev(docs, view_name, view_keys)
+      end
       
       docs
     end
-        
+    
+    #
+    # The paginate_view method only populates next and prev links if they exist.
+    # However, its implementation uses three queries to determine if the links
+    # should exist.
+    #
+    # It may be possible to determine if the links should exist with just
+    # a single query (by using a 1 doc offset on either side of the docs to be 
+    # displayed).
+    #
+    # This method makes a small change to paginate_view, dispensing with knowledge
+    # of when to create prev and next links but only requiring a single query.
+    #
+    # Indiscrimate display of prev links makes this method more suited
+    # to forward navigation only.
+    #
+    def qpaginate_view view_name, atts
+      atts[:qpaginate] = true
+      paginate_view view_name, atts
+    end
+    
+    #
+    # Paginates over views that don't emit the underlying doc as a val
+    # using the same idiom as qpaginate_view
+    #
+    def qpaginate_docs view_name, atts
+      page_params = atts.delete :page_params
+      view_keys = atts.delete :attributes      
+      
+      paginate_params = PaginateParams.new atts
+      raise paginate_params.error_msg if paginate_params.invalid?       
+      paginator = Paginator.new(paginate_params, page_params)
+
+      atts[:raw] = true
+      query = Query.new(view_name, atts)
+      query.merge(paginate_params)
+      
+      result = JSON.parse(db.get(query.view_path).body)
+      doc_ids = ids_from_view result
+      doc_ids.reverse! if paginate_params.order_inverted?
+      docs = RelaxDB.load! doc_ids
+      
+      paginator.add_q_next_and_prev docs, view_name, view_keys
+
+      docs      
+    end
+            
     def create_from_hash(data)
       data["rows"].map { |row| create_object(row["value"]) }
     end

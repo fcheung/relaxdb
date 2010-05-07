@@ -15,10 +15,21 @@ module RelaxDB
     end
     
     def __getobj__
-      unless @objs
-        @objs = RelaxDB.rf_view "#{@class_name}_all", @params
+      unless @ids
+        params = {:raw => true}.merge @params
+        result = RelaxDB.rf_view "#{@class_name}_all", params
+        @ids = RelaxDB.ids_from_view result
       end
-      @objs
+      @ids
+    end
+    
+    def __setobj__ obj
+      # Intentionally empty
+    end
+    
+    def load!
+      __getobj__
+      @objs = RelaxDB.load! @ids
     end
 
     def size
@@ -28,7 +39,7 @@ module RelaxDB
     
     # TODO: destroy in a bulk_save if feasible
     def destroy!
-      __getobj__
+      load!
       @objs.each do |o| 
         # A reload is required for deleting objects with a self referential references_many relationship
         # This makes all.destroy! very slow. Change if needed

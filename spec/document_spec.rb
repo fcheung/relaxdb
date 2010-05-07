@@ -25,10 +25,10 @@ describe RelaxDB::Document do
       p.viewed_at.should be_close(now, 1)
     end
     
-    it "will silently ignore parameters that don't specify class attributes" do
-      # Consider this a feature or bug. It allows an object containing both request params
-      # and superflous data to be passed directly to a constructor.
-      Post.new(:foo => "").save
+    it "will fail on parameters that don't specify class attributes" do
+      lambda {
+        Post.new :foo => ""
+      }.should raise_error
     end  
     
     it "should create a document with a non conflicing state" do
@@ -59,6 +59,11 @@ describe RelaxDB::Document do
       p = Primitives.new(:created_at => s).save
       json = RelaxDB.get(p._id)
       json["created_at"].should == "1970/01/01 00:00:00 +0000"
+    end
+
+    it "should allow to be called with an options argument, to be compatible with ActiveSupport" do
+      s = Time.at(0)
+      lambda { s.to_json( :active_support => 'love' ) }.should_not raise_error(ArgumentError)
     end
     
   end
@@ -102,7 +107,7 @@ describe RelaxDB::Document do
       
       roll_clock_forward(60) do
         updated_at = p.save.updated_at
-        updated_at.should be_close(Time.at(ts.to_i + 60), 1)  
+        updated_at.should be_close(Time.at(ts.to_i + 60), 2)  
       end      
     end
         
@@ -176,7 +181,7 @@ describe RelaxDB::Document do
       RelaxDB.reload(o).tt.should == Time.parse("2009/04/01")
       
       o = BespokeWriter.new(:tt => Time.now).save
-      RelaxDB.reload(o).tt.should be_close(Time.now, 1)
+      RelaxDB.reload(o).tt.should be_close(Time.now, 2)
     end
         
   end

@@ -14,13 +14,13 @@ describe RelaxDB::HasManyProxy do
       it "should infer the class name from the relationship if not supplied" do
         view = mock(:view).as_null_object
         RelaxDB::ViewCreator.should_receive(:has_n).with(
-          "",           # client_class
+          "MochaN",     # client_class
           :foo_bars,    # relationship          
           "FooBar",     # target_class
-          "",           # relationship_to_client
-          nil           # ordering
+          "mocha_n",     # relationship_to_client
+          nil
         ).and_return view
-        klass = Class.new(RelaxDB::Document) do
+        class ::MochaN < RelaxDB::Document
           has_many :foo_bars
         end
       end 
@@ -28,13 +28,13 @@ describe RelaxDB::HasManyProxy do
       it "should use the class name if supplied" do
         view = mock(:view).as_null_object
         RelaxDB::ViewCreator.should_receive(:has_n).with(
-          "",         # client_class
-          :foo_bars,  # relationship          
-          "Bar",     # target_class
-          "",          # relationship_to_client
-          nil           # ordering
+          "MochaBar",   # client_class
+          :foo_bars,    # relationship          
+          "Bar",        # target_class
+          "mocha_bar",   # relationship_to_client
+          nil
         ).and_return view
-        klass = Class.new(RelaxDB::Document) do
+        class ::MochaBar < RelaxDB::Document
           has_many :foo_bars, :class => "Bar"
         end
       end 
@@ -134,14 +134,17 @@ describe RelaxDB::HasManyProxy do
       end
       
       it "should invoke the derived properties writer" do
-        class HmsdParent < RelaxDB::Document
+        RelaxDB.enable_view_creation
+        class ::HmsdParent < RelaxDB::Document
           property :foo, :derived => [:zongs, lambda {|f, o| o.zongs.first.z / 2 }]
           has_many :zongs, :class => "HmsdChild"
         end
-        class HmsdChild < RelaxDB::Document
+        class ::HmsdChild < RelaxDB::Document
           property :z
           belongs_to :hmsd_parent
         end
+        RelaxDB::View.design_doc.save
+        
         oz = HmsdChild.new(:z => 10)
         op = HmsdParent.new(:zongs => [oz])
         op.foo.should == 5
@@ -199,7 +202,7 @@ describe RelaxDB::HasManyProxy do
       describe "#destroy" do
 
         it "should nullify its child relationships" do
-          Item.view_by :user_id
+          Item.view_docs_by :user_id
           
           u = User.new.save
           u.items << Item.new << Item.new    

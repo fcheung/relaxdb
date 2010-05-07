@@ -11,10 +11,10 @@ describe RelaxDB::Migration do
   it "should yield each obj to the block and save the result" do
     Primitives.new(:num => 5).save!
     r = @mig.run Primitives do |p|
-      pn = Primitives.new(:num => p.num * 2)
-      [p, pn]
+      p.num *= 2
+      p
     end
-    Primitives.by_num.map { |p| p.num}.should == [5, 10]
+    Primitives.by_num.map { |p| p.num }.should == [10]
   end
     
   it "should raise an exception if a save results in a conflict" do
@@ -42,16 +42,17 @@ describe RelaxDB::Migration do
       RelaxDB.db.reset_req_count
     end
     
-    # Note: two extra requests per paginate_view request are required
+    # Note: three requests per migration loop, plus two for the final loop
+    # where no migration actually occurs
     it "should operate on a doc set of the given size aka limit" do
       @mig.run(Primitives, 1) { |p| p.num *= p.num; p }
-      RelaxDB.db.req_count.should == 10 + 5 * 2 
+      RelaxDB.db.req_count.should == 5 * 3 + 2
       Primitives.by_num.map { |p| p.num }.should == [1, 4, 9, 16, 25]      
     end
 
     it "should operate on a doc set of default size" do
       @mig.run(Primitives) { |p| p.num *= p.num; p }
-      RelaxDB.db.req_count.should == 2 + 1 * 2
+      RelaxDB.db.req_count.should == 1 * 3 + 2
       Primitives.by_num.map { |p| p.num }.should == [1, 4, 9, 16, 25]      
     end
   
@@ -66,7 +67,7 @@ describe RelaxDB::Migration do
   describe ".run_all" do
     
     it "should save the version after each successful migration" do
-      @mig.run_all "a/b/1_", lambda {}
+      @mig.run_all ["a/b/1_"], lambda { |o| }
       RelaxDB::MigrationVersion.version.should == 1
     end
 
@@ -74,7 +75,7 @@ describe RelaxDB::Migration do
       v = RelaxDB::MigrationVersion.retrieve
       v.version = 2
       v.save!
-      @mig.run_all "3_", lambda {}
+      @mig.run_all ["3_"], lambda { |o| }
       RelaxDB::MigrationVersion.version.should == 3
     end
     
@@ -82,13 +83,13 @@ describe RelaxDB::Migration do
       v = RelaxDB::MigrationVersion.retrieve
       v.version = 2
       v.save!
-      @mig.run_all "1_foo", lambda {}
+      @mig.run_all ["1_foo"], lambda { |o| }
       RelaxDB::MigrationVersion.version.should == 2
     end
     
     it "should raise an exception on failure" do
       lambda do
-        @mig.run_all "1_foo", lambda { raise "Expected" }
+        @mig.run_all ["1_foo"], lambda { |o| raise "Expected" }
       end.should raise_error(RuntimeError, "Expected")
     end
     

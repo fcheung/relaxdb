@@ -3,8 +3,8 @@
 
 Gem::Specification.new do |s|
   s.name = "relaxdb"
-  s.version = "0.3.5"
-  s.date = "2009-08-15"
+  s.version = "0.4"
+  s.date = "2010-04-10"
   s.summary = "RelaxDB provides a simple interface to CouchDB"
   s.email = "paul.p.carey@gmail.com"
   s.homepage = "http://github.com/paulcarey/relaxdb/"
@@ -37,13 +37,13 @@ Gem::Specification.new do |s|
    "lib/relaxdb/uuid_generator.rb",
    "lib/relaxdb/taf2_curb_server.rb",
    "lib/relaxdb/validators.rb",
+   "lib/relaxdb/view_by_delegator",
    "lib/relaxdb/view_object.rb",
    "lib/relaxdb/view_result.rb",
    "lib/relaxdb/view_uploader.rb",
    "lib/relaxdb/views.rb",
    "lib/more/grapher.rb",
    "lib/relaxdb.rb",
-   "lib/more/atomic_bulk_save_support.rb",
    "spec/belongs_to_spec.rb",
    "spec/callbacks_spec.rb",
    "spec/derived_properties_spec.rb",
@@ -63,9 +63,8 @@ Gem::Specification.new do |s|
    "spec/spec.opts",
    "spec/spec_helper.rb",
    "spec/spec_models.rb",
-   "spec/view_by_spec.rb",
-   "spec/view_object_spec.rb",
-   "spec/view_spec.rb"]
+   "spec/view_docs_by_spec.rb",
+   "spec/view_object_spec.rb"]
   s.bindir = "bin"
   s.autorequire = "relaxdb"
   s.add_dependency "extlib", ">= 0.9.4" # removed ", runtime" as was failing locally

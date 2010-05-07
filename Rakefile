@@ -4,7 +4,7 @@ require 'spec/rake/spectask'
 
 PLUGIN = "relaxdb"
 NAME = "relaxdb"
-GEM_VERSION = "0.3.5"
+GEM_VERSION = "0.4"
 AUTHOR = "Paul Carey"
 EMAIL = "paul.p.carey@gmail.com"
 HOMEPAGE = "http://github.com/paulcarey/relaxdb/"
@@ -37,7 +37,7 @@ end
 
 desc "Install"
 task :install => [:package] do
-  sh %{sudo gem install --local pkg/#{NAME}-#{GEM_VERSION} --no-update-sources}
+  sh %{gem install --no-rdoc --no-ri --local pkg/#{NAME}-#{GEM_VERSION}}
 end
 
 desc "Run specs"
@@ -49,11 +49,6 @@ desc "Run specs and produce spec_results.html"
 Spec::Rake::SpecTask.new('spec:html') do |t|
   t.spec_files = FileList['spec/**/*.rb']
   t.spec_opts = ["--format", "html:docs/spec_results.html"]
-end
-
-desc "Supports atomic bulk save"
-task :atomic_bulk_save_support do |t|
-  require 'lib/more/atomic_bulk_save_support.rb'
 end
 
 desc "Create base spec db"
