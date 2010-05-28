@@ -3,6 +3,7 @@ require 'memcache'
 require 'zlib'
 module RelaxDB
   class MemcacheStore
+    attr_reader :cache
     
     def clear
       @cache.flush_all
