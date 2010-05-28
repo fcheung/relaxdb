@@ -211,13 +211,13 @@ module RelaxDB
         
     def post(path=nil, json=nil)
       @post_count += 1
-      @logger.info("POST /#{@db}/#{unesc(path)} #{json}")
+      @logger.info("POST /#{@db}/#{unesc(path)} #{json[0,512]}")
       benchmark{ @server.post("/#{@db}/#{path}", json)}
     end
     
     def put(path=nil, json=nil)
       @put_count += 1
-      @logger.info("PUT /#{@db}/#{unesc(path)} #{json}")
+      @logger.info("PUT /#{@db}/#{unesc(path)} #{json[0,512]}")
       benchmark{ @server.put("/#{@db}/#{path}", json)}
     end
     
