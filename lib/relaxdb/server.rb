@@ -90,8 +90,15 @@ module RelaxDB
       handle_response Typhoeus::Request.delete("http://#{@host}:#{@port}#{uri}")
     end
 
+    def uncached
+      @uncached = true
+      yield
+    ensure
+      @uncached = false
+    end
+    
     def get(uri)
-      etag = cache_store.get_etag uri
+      etag = !@uncached && cache_store.get_etag( uri)
       if etag
         headers = {:'If-None-Match' => etag}
       else
@@ -110,7 +117,7 @@ module RelaxDB
         end
       end
       
-      cache_store.store uri, response.body, response.etag
+      cache_store.store uri, response.body, response.etag unless @uncached
       response
     end
     

@@ -131,16 +131,19 @@ module RelaxDB
         data = JSON.parse(resp.body)
         rows = data["rows"].map { |row| row["doc"] ? create_object(row["doc"]) : nil }
       else
+        db.server.uncached do #a plain load is simple enough that there isn't any point caching is
+        
           cached_version = cached(ids)
           return cached_version if cached_version
-        begin
-          qs = atts.map{ |k, v| "#{k}=#{v}" }.join("&")
-          qs = atts.empty? ? ids : "#{ids}?#{qs}"
-          resp = db.get qs
-          data = JSON.parse resp.body
-          create_object data
-        rescue HTTP_404
-          nil
+          begin
+            qs = atts.map{ |k, v| "#{k}=#{v}" }.join("&")
+            qs = atts.empty? ? ids : "#{ids}?#{qs}"
+            resp = db.get qs
+            data = JSON.parse resp.body
+            create_object data
+          rescue HTTP_404
+            nil
+          end
         end
       end
       r
