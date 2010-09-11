@@ -33,7 +33,7 @@ describe RelaxDB::AllDelegator do
       docs = (1..3).map { |i| Primitives.new :num => i }
       RelaxDB.bulk_save! *docs
       pms = Primitives.all.load!
-      pms.map { |p| p.num }.inject(&:+).should == 6
+      pms.map { |p| p.num }.inject{|acc, val| acc + val}.should == 6
     end
     
   end

@@ -30,7 +30,7 @@ describe "RelaxDB Pagination" do
       query = lambda do |page_params|
         RelaxDB.qpaginate_view "Letter_by_letter_and_number", :page_params => page_params,
            :startkey => ["a"], :endkey => ["a",{}], :limit => 2,
-           :attributes => [:letter, :number]
+           :attributes => [:letter, :number], :include_docs => true
       end
     
       letters = query.call({})

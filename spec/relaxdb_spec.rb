@@ -349,7 +349,7 @@ describe RelaxDB do
       
       5.times { |i| Primitives.new(:num => i).save }
       Primitives.by_num
-      result = RelaxDB.view "Primitives_by_num", :keys => [0, 4], :reduce => false
+      result = RelaxDB.view "Primitives_by_num", :keys => [0, 4], :reduce => false, :include_docs => true
       result.map{ |p| p.num }.should == [0, 4]
     end
     
