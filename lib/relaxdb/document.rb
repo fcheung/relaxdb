@@ -153,7 +153,7 @@ module RelaxDB
         # Only set instance variables on creation - object references are resolved on demand
 
         # If the variable name ends in _at, _on or _date try to convert it to a Time
-        if TIME_REGEXP =~ key
+        if TIME_REGEXP =~ key.to_s
           val = Time.parse(val).utc rescue val
         end
         
