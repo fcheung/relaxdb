@@ -34,7 +34,7 @@ module RelaxDB
   
     def load_target
       view_name = "#{@client.class}_#{@relationship}"
-      RelaxDB.view(view_name, :key => @client._id).first
+      RelaxDB.view(view_name, :key => @client._id, :include_docs => true).first
     end
         
   end

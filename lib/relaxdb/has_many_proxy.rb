@@ -90,9 +90,9 @@ module RelaxDB
     def load_children
       view_name = "#{@client.class}_#{@relationship}"
       if @opts[:order]
-        @children = RelaxDB.view(view_name, :startkey => [@client._id], :endkey => [@client._id,{}])
+        @children = RelaxDB.view(view_name, :startkey => [@client._id], :endkey => [@client._id,{}], :include_docs => true)
       else
-        @children = RelaxDB.view(view_name, :key => @client._id)
+        @children = RelaxDB.view(view_name, :key => @client._id, :include_docs => true)
       end  
       loaded!
     end

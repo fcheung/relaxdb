@@ -295,7 +295,7 @@ module RelaxDB
     end
             
     def create_from_hash(data)
-      data["rows"].map { |row| create_object(row["value"]) }
+      data["rows"].map { |row| create_object(row["value"] || row["doc"]) }
     end
   
     def create_object(data)

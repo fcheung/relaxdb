@@ -52,7 +52,7 @@ module RelaxDB
       map = <<-QUERY
         function(doc) {
           if(doc.relaxdb_class == "#{target_class}" && doc.#{relationship_to_client}_id)
-            emit( #{key}, doc);
+            emit( #{key}, null);
         }
       QUERY
       
