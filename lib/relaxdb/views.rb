@@ -17,7 +17,7 @@ module RelaxDB
     end
     
     def self.docs_by_att_list(kls, *atts)
-      create_by_att_list "doc", "_count", kls, *atts
+      create_by_att_list "null", "_count", kls, *atts
     end
     
     def self.by_att_list(kls, *atts)

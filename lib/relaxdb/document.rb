@@ -550,11 +550,11 @@ module RelaxDB
         define_method by_name do |*params|
           view_name = "#{self.name}_#{by_name}"
           if params.empty?
-            RelaxDB.rf_view view_name, opts
+            RelaxDB.rf_view view_name, opts.merge( :include_docs => true)
           elsif params[0].is_a? Hash
-            RelaxDB.rf_view view_name, opts.merge(params[0])
+            RelaxDB.rf_view view_name, opts.merge(params[0]).merge(:include_docs => true)
           else
-            RelaxDB.rf_view(view_name, :key => params[0]).first
+            RelaxDB.rf_view(view_name, :key => params[0], :include_docs => true).first
           end            
         end
       end
@@ -565,7 +565,7 @@ module RelaxDB
           view_name = "#{self.name}_#{by_name}"
           params[:attributes] = atts
           params = opts.merge params
-          RelaxDB.paginate_view view_name, params
+          RelaxDB.paginate_view view_name, params.merge(:include_docs => true)
         end    
       end
     end
