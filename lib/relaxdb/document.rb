@@ -17,9 +17,7 @@ module RelaxDB
     # Attribute symbols added to this list won't be validated on save
     attr_accessor :validation_skip_list
     
-    # Should not be used by clients - private API only
-    # TODO - cunrrently used to get around shallow copy of dup for tests
-    # might not be needed, other ways around
+    # Not part of the public API - should only be used by clients with caution
     attr_accessor :data
     
     class_inheritable_accessor :properties, :reader => true
@@ -52,12 +50,9 @@ module RelaxDB
         end
         
         val
-        
-        # instance_variable_get("@#{prop}".to_sym)        
       end
 
       define_method("#{prop}=") do |val|
-        # instance_variable_set("@#{prop}".to_sym, val)
         @data[prop.to_s] = val
       end
       
@@ -68,7 +63,6 @@ module RelaxDB
             val = default.is_a?(Proc) ? default.call : default
             @data[prop.to_s] = val
           end
-          # instance_variable_set("@#{prop}".to_sym, default)
         end
       end
       
@@ -182,7 +176,7 @@ module RelaxDB
         end
       end
     end
-                
+
     def inspect
       s = "#<#{self.class}:#{self.object_id}"
       properties.each do |prop|
@@ -319,7 +313,6 @@ module RelaxDB
           begin
             @errors[att_name.to_sym] = send("#{att_name}_validation_msg", att_val)
           rescue => e
-            puts "#{e.backtrace[0, 5].join("\n")}"
             RelaxDB.logger.warn "Validation_msg for #{att_name} with #{att_val} raised #{e}"
             @errors[att_name.to_sym] = "validation_msg_exception:invalid:#{att_val}"
           end
@@ -487,11 +480,7 @@ module RelaxDB
     end
     
     self.belongs_to_rels = {}
-    
-    def self.all_relationships
-      belongs_to_rels + has_one_rels + has_many_rels + references_many_rels
-    end
-        
+
     def self.all params = {}
       AllDelegator.new self.name, params
     end
@@ -591,7 +580,6 @@ module RelaxDB
         end    
       end
     end
-    
     
     #
     # Creates the corresponding view, emitting 1 as the val
