@@ -58,6 +58,7 @@ Gem::Specification.new do |s|
    "spec/paginate_spec.rb",
    "spec/query_spec.rb",
    "spec/references_many_spec.rb",
+   "spec/references_proxy_spec.rb",
    "spec/relaxdb_spec.rb",
    "spec/server_spec.rb",
    "spec/spec.opts",
