@@ -131,7 +131,7 @@ module RelaxDB
         data = JSON.parse(resp.body)
         rows = data["rows"].map { |row| row["doc"] ? create_obj_from_doc(row["doc"]) : nil }
       else
-        db.server.uncached do #a plain load is simple enough that there isn't any point caching is
+        db.server.uncached do #a plain load is simple enough that there isn't any point memcaching it
         
           cached_version = cached(ids)
           return cached_version if cached_version
