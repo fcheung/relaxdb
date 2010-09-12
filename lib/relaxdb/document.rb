@@ -192,7 +192,7 @@ module RelaxDB
     
     alias_method :to_s, :inspect
             
-    def to_json(options={})
+    def to_json(*args)      
       @data.to_json      
     end
             
