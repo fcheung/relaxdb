@@ -139,6 +139,11 @@ module RelaxDB
       @save_list = []
       @validation_skip_list = []
       
+      # hash.dup because assigning references properties and defaults both 
+      # modify the internal representation - @data. This messes with the 
+      # iterator below that assigns vals to @data.
+      params = hash.dup
+      
       # If there's no rev, it's a new document
       if hash["_rev"].nil?
         @data = {}
@@ -162,8 +167,7 @@ module RelaxDB
           end
         end
         
-        
-        hash.each do |key, val|
+        params.each do |key, val|
           send("#{key}=".to_sym, val)
         end
         
