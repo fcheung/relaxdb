@@ -303,7 +303,7 @@ module RelaxDB
     end
   
     def create_object(data)
-      klass = data.is_a?(Hash) && data.delete("relaxdb_class")
+      klass = data.is_a?(Hash) && data["relaxdb_class"]
       if klass
         k = klass.split("::").inject(Object) { |x, y| x.const_get y }
         r = k.new data

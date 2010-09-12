@@ -71,7 +71,8 @@ describe RelaxDB::BelongsToProxy do
       r.photo.rating.should == r
     end    
     
-    it "may be used reciprocally" do
+        
+    it "may be used reciprocally across save / load boundary" do
       fb, bf = FooBar.new, BarFoo.new
 
       fb.bf = bf
@@ -84,6 +85,19 @@ describe RelaxDB::BelongsToProxy do
       
       bf = RelaxDB.load bf._id
       bf.fb.should == fb
+    end
+    
+    it "should not store the referenced object" do
+      p = Photo.new.save!
+      r = Rating.new(:photo => p).save!
+      
+      r = RelaxDB.reload r
+      RelaxDB.db.reset_req_count
+      
+      r.data["photo"].should be_nil
+      r.photo.should == p
+      
+      RelaxDB.db.req_count.should == 1
     end
     
     describe "validator" do
