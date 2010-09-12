@@ -32,7 +32,9 @@ module RelaxDB
     end
     
     def self.refill
-      resp = RelaxDB.db.uuids(@count)
+      resp = RelaxDB.db.server.uncached do
+        RelaxDB.db.uuids(@count)
+      end
       @uuids = JSON.parse(resp.body)["uuids"]      
     end
     
