@@ -91,10 +91,11 @@ module RelaxDB
     end
 
     def uncached
+      old_uncached = @uncached
       @uncached = true
       yield
     ensure
-      @uncached = false
+      @uncached = old_uncached
     end
     
     def get(uri)
