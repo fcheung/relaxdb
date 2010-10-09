@@ -266,6 +266,32 @@ describe RelaxDB::Document do
     
   end
   
+  describe "eql?" do
+    it "should define equality based on CouchDB id" do
+      i1 = Atom.new.save
+      i2 = Atom.new.save
+      i3 = RelaxDB.load(i1._id)
+      i1.should_not eql(i2)
+      i1.should eql(i3)
+    end
+
+    it "should return false when passed a nil object" do
+      (Atom.new.eql? nil).should_not be_true
+    end
+
+  end
+    
+  describe "hash" do
+    it "should define hash based on CouchDB id" do
+      i1 = Atom.new.save
+      i2 = Atom.new.save
+      i3 = RelaxDB.load(i1._id)
+      i1.hash.should_not == i2.hash
+      i1.hash.should == i3.hash
+      
+    end
+  end
+    
   describe ".all" do
   
     it "should return all instances of that class" do

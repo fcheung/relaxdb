@@ -346,6 +346,16 @@ module RelaxDB
       other && _id == other._id
     end
    
+    # Delegates to ==
+    def eql?(comparison_object)
+      self == (comparison_object)
+    end
+    
+    #Allows [RelaxDB.load('123'), RelaxDB.load('456')] & [RelaxDB.load('123')] to work as expected
+    def hash
+      _id.hash
+    end
+   
     # If you're using this method, read the specs and make sure you understand
     # how it can be used and how it shouldn't be used
     def self.references_many(relationship, opts={})
