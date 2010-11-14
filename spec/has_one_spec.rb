@@ -34,6 +34,14 @@ describe RelaxDB::HasOneProxy do
       p.rating.object_id.should == p.rating.object_id
     end
     
+    it "should cache nil values" do
+      p = Photo.new.save
+      p.rating
+      RelaxDB.db.get_count = 0
+      p.rating
+      RelaxDB.db.get_count.should == 0
+    end
+    
     it "should be preserved across load / save boundary" do
       r = Rating.new
       p = Photo.new(:rating => r).save

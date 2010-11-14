@@ -34,6 +34,7 @@ describe RelaxDB::BelongsToProxy do
       # I'm not saying the following is correct or desired - merely codifying how things stand 
       p.rating.should be_nil 
       r.save
+      p = RelaxDB.load p._id
       p.rating.should == r
     end    
   
