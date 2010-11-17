@@ -1,5 +1,4 @@
-gem 'memcache-client'
-require 'memcache'
+gem 'dalli'
 require 'zlib'
 module RelaxDB
   class MemcacheStore
@@ -10,7 +9,7 @@ module RelaxDB
     end
     
     def initialize(*args_for_memcache)
-      @cache = MemCache.new *args_for_memcache
+      @cache = Dalli::Client.new *args_for_memcache
     end
     
     def get_etag(cache_key)
