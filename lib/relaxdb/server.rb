@@ -118,7 +118,7 @@ module RelaxDB
         end
       end
       
-      cache_store.store uri, response.body, response.etag unless @uncached
+      cache_store.store uri, response.body, response.etag unless @uncached || response.etag.blank?
       response
     end
     
