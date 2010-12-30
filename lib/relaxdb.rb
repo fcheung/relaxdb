@@ -4,6 +4,7 @@ require 'extlib'
 begin
   require 'yajl'
   require 'yajl/json_gem'
+  Yajl::Encoder::default_to_ascii_only=true
 rescue LoadError
   require 'json'
 end
